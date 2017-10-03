@@ -1,14 +1,15 @@
 #include <LMI.h>
 #include <HologramSIMCOM.h>
 
-//#define SIMULATE
-#define HOLO_KEY "" //replace w/your SIM key
+//#define SIMULATE // Don't Send Message over GPRS but print it on Serial useful for debug
+#define HOLO_KEY "n8iAm]*b" //replace w/your SIM key
 #define FONA_RX  9
 #define FONA_TX  8
 #define FONA_RST 4
 #define MESSAGE_TIMER  (unsigned long)300000 // wait 5 minutes
-#define THRESHOLD_DETECTION 50 // System will send a message if measure pressure is up to +-50Pa
+#define THRESHOLD_DETECTION 50 // System will send a message if measure pressure is higer or lower than +/- 50Pa
 #define SENSOR_REFRESH  (1* 1000) // wait 5s
+
 LMI Sensor;
 unsigned long nextMessage = 0x00;
 unsigned long nextRefresh = 0x00;
@@ -34,7 +35,7 @@ void setup() {
 
 void loop() {
    Hologram.debug();
-   String LMIInfo = "F#" + Sensor.GetFWVersion() + "P#" + Sensor.GetPartNumber();
+   String LMIInfo = "P," + Sensor.GetPartNumber() + ";" + Sensor.GetFWVersion()+";" + Sensor.GetLotNumber()+";" + Sensor.GetPressureRange()+";" + Sensor.GetOutputType()+";" + Sensor.GetScaleFactor();
    float SensorValue = 0.0;
 
    SensorValue = Sensor.GetPressure();
@@ -43,7 +44,7 @@ void loop() {
    if(Hologram.cellService())
    {
      SendMessage(LMIInfo);
-     LMIInfo = "V#";
+     LMIInfo = "V,";
      LMIInfo += String(SensorValue);
      SendMessage(LMIInfo);
      nextMessage = (unsigned long)millis() + MESSAGE_TIMER;
@@ -60,7 +61,7 @@ void loop() {
       // timeout send new value
       if ( millis() > nextMessage){
            Serial.println("Send New Value");
-           LMIInfo = "V#";
+           LMIInfo = "V,";
            LMIInfo += String(SensorValue);
            SendMessage(LMIInfo);
            nextMessage = (unsigned long)millis() + MESSAGE_TIMER;
@@ -74,7 +75,7 @@ void loop() {
         SensorValue = Sensor.GetPressure();
         // Send Alarm
         if(SensorValue < -THRESHOLD_DETECTION || SensorValue > THRESHOLD_DETECTION){
-           LMIInfo = "A#";
+           LMIInfo = "A,";
            LMIInfo += String(SensorValue);
            SendMessage(LMIInfo);
         }
@@ -85,7 +86,7 @@ void loop() {
 }
 
 void SendMessage(String sToSend){
-  sToSend = "{Dev:" + Sensor.GetSerialNumber() + ",Message:" + sToSend+"}";
+  sToSend = Sensor.GetSerialNumber() + ","+ sToSend;
   #ifndef SIMULATE
    Hologram.send(sToSend);
   #else
